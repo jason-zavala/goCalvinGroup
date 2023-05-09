@@ -15,6 +15,11 @@ import (
 	"time"
 )
 
+type BotCommand struct {
+	Name    string `json:"name"`
+	Message string `json:"message"`
+}
+
 type ImageResponse struct {
 	Payload struct {
 		URL        string `json:"url"`
@@ -226,7 +231,48 @@ func handleBotImage() {
 	}
 }
 
-func main() {
+func handleCallback(w http.ResponseWriter, r *http.Request) {
+	// Parse the JSON payload from the request body
+	var command BotCommand
+	err := json.NewDecoder(r.Body).Decode(&command)
+	if err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
 
-	handleBotImage()
+	// Process the bot command
+	fmt.Printf("Received command: %s\n", command.Name)
+	fmt.Printf("Command message: %s\n", command.Message)
+
+	// Send a response back
+	response := struct {
+		Message string `json:"message"`
+	}{
+		Message: "Command received successfully",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		http.Error(w, "Failed to send response", http.StatusInternalServerError)
+		return
+	}
+}
+
+func main() {
+	// Set up the HTTP server
+	http.HandleFunc("/callback", handleCallback)
+
+	// Start the server
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	fmt.Printf("Server listening on port %s...\n", port)
+	err := http.ListenAndServe(":"+port, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	//handleBotImage()
 }
