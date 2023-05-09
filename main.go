@@ -165,7 +165,7 @@ func sendGroupMeMessage(url, msg string, botID string) error {
 	return nil
 }
 
-func handleBotImage() {
+func main() {
 	// Get a random URL from the url.txt file
 	imageURL, err := getRandomURLFromFile()
 	if err != nil {
@@ -195,7 +195,5 @@ func handleBotImage() {
 	} else {
 		fmt.Println("Message sent successfully!")
 	}
-}
-func main() {
-	handleBotImage()
+
 }
