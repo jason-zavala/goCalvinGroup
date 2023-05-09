@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -45,6 +46,28 @@ func downloadImage(url string) error {
 
 	//log.Printf("Image saved as %s\n", fileName)
 	return nil
+}
+
+func getRandomQuote() (string, error) {
+	// Read the contents of the text file
+	content, err := ioutil.ReadFile("quotes.txt")
+	if err != nil {
+		return "", err
+	}
+
+	// Split the content into lines
+	lines := strings.Split(string(content), "\n")
+
+	// Seed the random number generator
+	rand.Seed(time.Now().UnixNano())
+
+	// Generate a random index
+	randomIndex := rand.Intn(len(lines))
+
+	// Get the random line from the lines slice
+	randomLine := lines[randomIndex]
+
+	return randomLine, nil
 }
 
 func getRandomURLFromFile() (string, error) {
@@ -166,6 +189,13 @@ func sendGroupMeMessage(url, msg string, botID string) error {
 }
 
 func handleBotImage() {
+
+	//gets a random calvin quote from our quotes.txt
+	msg, err := getRandomQuote()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Get a random URL from the url.txt file
 	imageURL, err := getRandomURLFromFile()
 	if err != nil {
@@ -186,7 +216,6 @@ func handleBotImage() {
 		log.Fatal(err)
 	}
 
-	msg := "Nice one mate!"
 	botID := os.Getenv("BOT_ID")
 	err = sendGroupMeMessage(imageURL, msg, botID)
 
@@ -196,6 +225,8 @@ func handleBotImage() {
 		fmt.Println("Message sent successfully!")
 	}
 }
+
 func main() {
+
 	handleBotImage()
 }
