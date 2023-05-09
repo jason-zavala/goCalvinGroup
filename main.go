@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -42,7 +43,7 @@ func downloadImage(url string) error {
 		return fmt.Errorf("failed to save the image: %v", err)
 	}
 
-	log.Printf("Image saved as %s\n", fileName)
+	//log.Printf("Image saved as %s\n", fileName)
 	return nil
 }
 
@@ -119,11 +120,49 @@ func uploadImage(imagePath string, accessToken string) (string, error) {
 		if err := json.Unmarshal(responseBody, &imageResp); err != nil {
 			return "", fmt.Errorf("failed to parse response: %v", err)
 		}
-		fmt.Println("this might be the actual URL: ", imageResp.Payload.URL)
 		return imageResp.Payload.PictureURL, nil
 	} else {
 		return "", fmt.Errorf("image upload failed. Response body: %s", string(responseBody))
 	}
+}
+
+func sendGroupMeMessage(url, msg string, botID string) error {
+	type Attachment struct {
+		Type string `json:"type"`
+		URL  string `json:"url"`
+	}
+
+	data := struct {
+		BotID       string       `json:"bot_id"`
+		Text        string       `json:"text"`
+		Attachments []Attachment `json:"attachments"`
+	}{
+		BotID: botID,
+		Text:  msg,
+		Attachments: []Attachment{
+			{
+				Type: "image",
+				URL:  url,
+			},
+		},
+	}
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+
+	resp, err := http.Post("https://api.groupme.com/v3/bots/post", "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to send HTTP request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+		return fmt.Errorf("received non-200/202 status code: %s", resp.Status)
+	}
+
+	return nil
 }
 
 func main() {
@@ -147,6 +186,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println("GroupMe Image URL:", imageURL)
+	msg := "Nice one mate!"
+	botID := os.Getenv("BOT_ID")
+	err = sendGroupMeMessage(imageURL, msg, botID)
+
+	if err != nil {
+		fmt.Printf("Error: %s\n", err)
+	} else {
+		fmt.Println("Message sent successfully!")
+	}
 
 }
