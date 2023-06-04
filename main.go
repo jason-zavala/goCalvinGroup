@@ -55,6 +55,12 @@ func (b *Calvin) handleBotImage() {
 }
 
 func (b *Calvin) handleCallback(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	var command BotCommand
 	err := json.NewDecoder(r.Body).Decode(&command)
 
@@ -73,7 +79,6 @@ func (b *Calvin) handleCallback(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	botID := os.Getenv("BOT_ID")
-	fmt.Println(botID)
 	accessToken := os.Getenv("GM_TOKEN")
 
 	bot := &Calvin{
@@ -89,6 +94,11 @@ func main() {
 
 	// Set up the HTTP server
 	http.HandleFunc("/callback", bot.handleCallback)
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "index.html")
+	})
+
 	// Start the server
 	port := os.Getenv("PORT")
 	if port == "" {
