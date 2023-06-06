@@ -35,14 +35,16 @@ type MessageSender interface {
 }
 
 type Calvin struct {
-	URLGenerator    URLGenerator
-	ImageDownloader ImageDownloader
-	QuoteProvider   QuoteProvider
-	ImageUploader   ImageUploader
-	MessageSender   MessageSender
-	Command         string
-	BotID           string
-	AccessToken     string
+	URLGenerator     URLGenerator
+	ImageDownloader  ImageDownloader
+	QuoteProvider    QuoteProvider
+	ImageUploader    ImageUploader
+	MessageSender    MessageSender
+	Command          map[string]bool
+	BotID            string
+	AccessToken      string
+	PreviousURLIndex int
+	URLMap           map[int]string
 }
 
 type ImageResponse struct {
