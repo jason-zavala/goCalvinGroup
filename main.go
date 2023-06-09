@@ -2,13 +2,17 @@ package main
 
 import (
 	"bufio"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
 	"strings"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type BotCommand struct {
@@ -35,11 +39,13 @@ func (b *Calvin) handleBotImage() {
 	var imageURL string
 
 	if len(b.URLMap) == 0 {
+		fmt.Println("Not Using URLMap")
 		imageURL, err = b.URLGenerator.GetRandomURL()
 		if err != nil {
 			log.Fatal(err)
 		}
 	} else {
+		fmt.Println("Using URLMap")
 		randomIndex := rand.Intn(len(b.URLMap))
 		imageURL = b.URLMap[randomIndex]
 		b.PreviousURLIndex = randomIndex
@@ -119,32 +125,8 @@ func (b *Calvin) handleCallback(w http.ResponseWriter, r *http.Request) {
 		b.handleNextBotImage()
 		return
 	}
+
 	b.handleBotImage()
-}
-
-func buildURLMap() (map[int]string, error) {
-	file, err := os.Open("url.txt")
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer file.Close()
-
-	urlMap := make(map[int]string)
-	scanner := bufio.NewScanner(file)
-	count := 0
-
-	for scanner.Scan() {
-		urlMap[count] = scanner.Text()
-		count++
-	}
-
-	if len(urlMap) == 0 {
-		return nil, nil
-	}
-	fmt.Println("finished building map")
-	return urlMap, nil
 }
 
 func main() {
@@ -176,6 +158,15 @@ func main() {
 
 	// Set up the HTTP server
 	http.HandleFunc("/callback", bot.handleCallback)
+	http.HandleFunc("/image", func(w http.ResponseWriter, r *http.Request) {
+		err := randomImage()
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		http.ServeFile(w, r, "cal.jpg")
+	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "index.html")
@@ -192,4 +183,59 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func randomImage() error {
+	// Open a connection to the database
+	db, err := sql.Open("sqlite3", "comics.db")
+	if err != nil {
+		fmt.Println("Error opening database:", err)
+		return err
+	}
+	defer db.Close()
+
+	// Retrieve the blob data from the database
+	//query := "SELECT image_data FROM Images WHERE id = 423"
+	query := "SELECT image_data FROM Images ORDER BY RANDOM() LIMIT 1"
+
+	row := db.QueryRow(query)
+
+	var imageData []byte
+	if err := row.Scan(&imageData); err != nil {
+		fmt.Println("Error retrieving blob data:", err)
+		return err
+	}
+
+	// Save the blob data as a JPEG image file
+	err = ioutil.WriteFile("cal.jpg", imageData, 0644)
+	if err != nil {
+		fmt.Println("Error saving image file:", err)
+		return err
+	}
+	return nil
+}
+
+func buildURLMap() (map[int]string, error) {
+	file, err := os.Open("url.txt")
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer file.Close()
+
+	urlMap := make(map[int]string)
+	scanner := bufio.NewScanner(file)
+	count := 0
+
+	for scanner.Scan() {
+		urlMap[count] = scanner.Text()
+		count++
+	}
+
+	if len(urlMap) == 0 {
+		return nil, nil
+	}
+	fmt.Println("finished building map")
+	return urlMap, nil
 }
