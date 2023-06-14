@@ -1,4 +1,4 @@
-package main
+package calvin
 
 import (
 	"bufio"
@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -45,6 +46,21 @@ type Calvin struct {
 	AccessToken      string
 	PreviousURLIndex int
 	URLMap           map[int]string
+	Logger           *log.Logger
+}
+
+type BotCommand struct {
+	Name       string `json:"name"`
+	Message    string `json:"text"`
+	AvatarURL  string `json:"avatar_url"`
+	CreatedAt  int64  `json:"created_at"`
+	GroupID    string `json:"group_id"`
+	ID         string `json:"id"`
+	SenderID   string `json:"sender_id"`
+	SenderType string `json:"sender_type"`
+	SourceGUID string `json:"source_guid"`
+	System     bool   `json:"system"`
+	UserID     string `json:"user_id"`
 }
 
 type ImageResponse struct {
@@ -118,7 +134,7 @@ type DefaultQuoteProvider struct{}
 
 func (q *DefaultQuoteProvider) GetRandomQuote() (string, error) {
 	// Read the contents of the text file
-	content, err := ioutil.ReadFile("quotes.txt")
+	content, err := ioutil.ReadFile("calvin/quotes.txt")
 	if err != nil {
 		return "", err
 	}
@@ -228,4 +244,100 @@ func (s *DefaultMessageSender) SendMessage(url, msg, botID string) error {
 	}
 
 	return nil
+}
+
+func (b *Calvin) HandleCallback(w http.ResponseWriter, r *http.Request) {
+
+	var command BotCommand
+	err := json.NewDecoder(r.Body).Decode(&command)
+
+	if err != nil {
+		b.Logger.Println(err)
+		return
+	}
+
+	words := strings.Fields(command.Message)
+	potentialCommand := words[0]
+
+	if len(words) == 0 || !b.Command[potentialCommand] {
+		return
+	}
+
+	if potentialCommand == "next" || potentialCommand == "!next" {
+		b.Logger.Println("inside this function")
+		b.handleNextBotImage()
+		return
+	}
+
+	b.handleBotImage()
+}
+
+func (b *Calvin) handleBotImage() {
+
+	msg, err := b.QuoteProvider.GetRandomQuote()
+	if err != nil {
+		b.Logger.Println(err)
+	}
+
+	var imageURL string
+
+	if len(b.URLMap) == 0 {
+		imageURL, err = b.URLGenerator.GetRandomURL()
+		if err != nil {
+			b.Logger.Println(err)
+		}
+	} else {
+		randomIndex := rand.Intn(len(b.URLMap))
+		imageURL = b.URLMap[randomIndex]
+		b.PreviousURLIndex = randomIndex
+	}
+
+	err = b.ImageDownloader.DownloadImage(imageURL)
+	if err != nil {
+		b.Logger.Println(err)
+	}
+
+	imageURL, err = b.ImageUploader.UploadImage("image.jpg", b.AccessToken)
+	if err != nil {
+		b.Logger.Println(err)
+	}
+
+	err = b.MessageSender.SendMessage(imageURL, msg, b.BotID)
+
+	if err != nil {
+		b.Logger.Printf("Error: %s\n", err)
+	} else {
+		b.Logger.Println("Message sent successfully!")
+	}
+}
+
+func (b *Calvin) handleNextBotImage() {
+
+	msg, err := b.QuoteProvider.GetRandomQuote()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	updatedIndex := b.PreviousURLIndex
+	updatedIndex++
+	imageURL := b.URLMap[updatedIndex]
+	b.PreviousURLIndex = updatedIndex
+
+	err = b.ImageDownloader.DownloadImage(imageURL)
+	if err != nil {
+		b.Logger.Println(err)
+	}
+
+	imageURL, err = b.ImageUploader.UploadImage("image.jpg", b.AccessToken)
+	if err != nil {
+		b.Logger.Println(err)
+	}
+
+	err = b.MessageSender.SendMessage(imageURL, msg, b.BotID)
+
+	if err != nil {
+		b.Logger.Printf("Error: %s\n", err)
+	} else {
+		b.Logger.Println("Message sent successfully!")
+	}
 }
