@@ -14,10 +14,9 @@ To use the Calvin project, follow these steps:
    go build
    ```
 4. Exectute the binary with: 
-
-```bash
-./calvin
-```
+    ```bash
+    ./calvin
+    ```
 
 ## Functionality
 
